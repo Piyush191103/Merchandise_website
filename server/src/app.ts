@@ -12,11 +12,9 @@ import morgan from "morgan";
 import Stripe from "stripe";
 import cors from "cors";
 
+config();
 
 
-config({
-  path: "./src/.env",
-});
 
 const port = process.env.PORT || 4000;
 const stripeKey = process.env.STRIPE_KEY || "";
@@ -25,6 +23,7 @@ const stripeKey = process.env.STRIPE_KEY || "";
 const app = express();
 app.use(express.json());
 app.use(morgan("dev"));
+console.log("Mongo URI loaded:", !!process.env.MONGO_URI);
 connectDB();
 app.use(
   cors()

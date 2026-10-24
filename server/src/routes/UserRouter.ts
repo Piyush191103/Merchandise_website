@@ -1,25 +1,37 @@
-import  express  from "express";
-import { deleteUser, getAllUsers, getUser, newUser } from "../controllers/userController.js";
+
+import express from "express";
+import {
+  deleteUser,
+  getAllUsers,
+  getUser,
+  newUser,
+  emailSignup,
+  emailSignin,
+  verifySession,
+} from "../controllers/userController.js";
 import { adminOnly } from "../middlewares/auth.js";
 
+const app = express.Router();
 
-const app=express.Router();
-
-//route: /api/v1/user/new
+// Google login / existing user registration
 app.post("/new", newUser);
 
-//route: /api/v1/user/all
+// Normal email/password signup
+app.post("/signup", emailSignup);
 
-app.get("/all",adminOnly, getAllUsers);
+// Normal email/password signin
+app.post("/signin", emailSignin);
 
-//route: /api/v1/user/:id
+// verify session
+app.get("/session", verifySession);
 
-app.get("/:id",getUser);
+// Get all users (admin only)
+app.get("/all", adminOnly, getAllUsers);
 
-//route: /api/v1/user/:id
+// Get a single user
+app.get("/:id", getUser);
 
-app.delete("/:id",adminOnly, deleteUser);
-
-
+// Delete user (admin only)
+app.delete("/:id", adminOnly, deleteUser);
 
 export default app;

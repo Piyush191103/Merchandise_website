@@ -6,6 +6,8 @@ import { FaCartShopping } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { auth } from "../firebase";
 import { UserType } from "../types/Types";
+import { useDispatch } from "react-redux";
+import { userNotExist } from "../redux/reducer/UserReducer";
 
 
 
@@ -14,17 +16,27 @@ type HeaderProptype={
 
 }
 const Header = ({user}:HeaderProptype) => {
+  const dispatch = useDispatch();
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const logoutHandler = async() => {
-    try {
-      await signOut(auth);
-      toast.success("Signed Out");
-      
-    } catch (error) {
-      toast.error("Sign Out Fail");
-    }
+  
+const logoutHandler = async () => {
+  try {
+    await signOut(auth);
+
+    // Remove the email/password JWT
+    localStorage.removeItem("authToken");
+
+    // Clear the Redux user for both login methods
+    dispatch(userNotExist());
+
     setIsOpen(false);
-  };
+    toast.success("Signed Out");
+  } catch (error) {
+    console.error("Sign out error:", error);
+    toast.error("Sign Out Failed");
+  }
+};
+
   return (
     <nav className="header">
       <Link onClick={() => setIsOpen(false)} to={"/"}>

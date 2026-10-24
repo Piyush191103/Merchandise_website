@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect,useState } from "react";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import ProductCard from "../components/ProductCard";
@@ -52,12 +52,21 @@ const dispatch = useDispatch();
       setPage((prev) => prev + 1);
     }
   };
+  useEffect(() => {
   if (isCategoryError) {
-    toast.error((categoryError as CustomError).data.message);
+    toast.error(
+      (categoryError as CustomError).data?.message || "Failed to load categories"
+    );
   }
+}, [isCategoryError, categoryError]);
+
+useEffect(() => {
   if (isSearchError) {
-    toast.error((searchError as CustomError).data.message);
+    toast.error(
+      (searchError as CustomError).data?.message || "Failed to fetch products"
+    );
   }
+}, [isSearchError, searchError]);
 
 
   const addToCartHandler = (cartItem: CartItemType) => {

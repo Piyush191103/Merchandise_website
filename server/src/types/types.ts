@@ -11,6 +11,13 @@ export type NewUserRequestBody = {
   //Virtual Attribute
   age: number;
 };
+export type EmailSignupRequestBody = {
+  name: string;
+  email: string;
+  password: string;
+  gender: "male" | "female";
+  dob: Date;
+};
 
 export type NewProduct = {
   name: string;

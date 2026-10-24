@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Document } from "mongoose";
 import validator from "validator";
 
 
@@ -6,10 +6,11 @@ interface Iuser extends Document {
   _id: String;
   name: String;
   email: String;
+  password?: string;
   photo: String;
   role: "user" | "admin";
-  gender: "male" | "female";
-  dob: Date;
+  gender?: "male" | "female";
+  dob?: Date;
   createdAt: Date;
   updatedAt: Date;
 
@@ -43,11 +44,16 @@ const userschema = new mongoose.Schema(
     gender: {
       type: String,
       enum: ["male", "female"],
-      required: [true, "Enter your Gender"],
+      required: false,
     },
     dob: {
       type: Date,
-      required: [true, "Enter Your Date Of birth"],
+      required: false,
+    },
+    password: {
+      type: String,
+      required: false,
+      select: false,
     },
   },
   {
@@ -55,15 +61,27 @@ const userschema = new mongoose.Schema(
   }
 );
 
-userschema.virtual("age").get(function(){
-  const today=new Date();
-  const dob=this.dob
-  let age:number=today.getFullYear()-dob.getFullYear();
-  if(today.getMonth()<dob.getMonth() || today.getMonth()===dob.getMonth() && today.getDate()<dob.getDate()){
+
+userschema.virtual("age").get(function () {
+  if (!this.dob) {
+    return null;
+  }
+
+  const today = new Date();
+  const dob = this.dob;
+
+  let age = today.getFullYear() - dob.getFullYear();
+
+  if (
+    today.getMonth() < dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() &&
+      today.getDate() < dob.getDate())
+  ) {
     age--;
   }
 
   return age;
-})
+});
+
 
 export const User = mongoose.model<Iuser>("User", userschema);

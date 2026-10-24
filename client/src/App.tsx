@@ -13,6 +13,8 @@ import ProtectedRoute from "./components/admin/ProtectedRoute";
 import { UserReducerType } from "./types/ReducerTypes";
 import ErrorPage from "./components/ErrorPage";
 
+
+
 const Home = lazy(() => import("./pages/Home"));
 const Search = lazy(() => import("./pages/Search"));
 const Cart = lazy(() => import("./pages/Cart"));
@@ -49,18 +51,63 @@ const App = () => {
 
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        console.log("Logged in");
-        const data = await getUser(user.uid);
+
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    try {
+      if (firebaseUser) {
+        // Existing Google/Firebase login
+        const data = await getUser(firebaseUser.uid);
+
+        if (data.success && data.user) {
+          dispatch(userExist(data.user));
+        } else {
+          dispatch(userNotExist());
+        }
+
+        return;
+      }
+
+      // Email/password login: restore from saved JWT
+      const token = localStorage.getItem("authToken");
+
+      if (!token) {
+        dispatch(userNotExist());
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SERVER}/api/v1/user/session`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        localStorage.removeItem("authToken");
+        dispatch(userNotExist());
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.user) {
         dispatch(userExist(data.user));
       } else {
-        console.log("Not Logged in");
+        localStorage.removeItem("authToken");
         dispatch(userNotExist());
       }
-    });
-  }, []);
+    } catch (error) {
+      console.error("Session restore failed:", error);
+      dispatch(userNotExist());
+    }
+  });
+
+  return () => unsubscribe();
+}, [dispatch]);
+
 
   return loading ? (
     <Loader />
