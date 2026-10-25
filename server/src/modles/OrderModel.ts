@@ -55,6 +55,15 @@ const orderSchema = new mongoose.Schema(
       enum: ["Processing", "Shipped", "Delivered"],
       default: "Processing",
     },
+    razorpayOrderId: {
+      type: String,
+      required: true,
+    },
+    razorpayPaymentId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     orderItems:[{
         name:String,
         photo:String,

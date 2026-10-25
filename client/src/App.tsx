@@ -13,33 +13,37 @@ import ProtectedRoute from "./components/admin/ProtectedRoute";
 import { UserReducerType } from "./types/ReducerTypes";
 import ErrorPage from "./components/ErrorPage";
 
-
-
 const Home = lazy(() => import("./pages/Home"));
+const Categories = lazy(() => import("./pages/ShopCategories"));
 const Search = lazy(() => import("./pages/Search"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Shipping = lazy(() => import("./pages/Shipping"));
 const Login = lazy(() => import("./pages/Login"));
 const Orders = lazy(() => import("./pages/Orders"));
+const OrderDetails = lazy(() => import("./pages/OrderDetails"));
 
-// IMPORTING ADMIN DASHBOARDS
+// Admin dashboards
 const Dashboard = lazy(() => import("./pages/admin/dashboard"));
 const Products = lazy(() => import("./pages/admin/products"));
 const Customers = lazy(() => import("./pages/admin/customers"));
 const Transaction = lazy(() => import("./pages/admin/transaction"));
 const Barcharts = lazy(() => import("./pages/admin/charts/barcharts"));
-
 const Piecharts = lazy(() => import("./pages/admin/charts/piecharts"));
 const Linecharts = lazy(() => import("./pages/admin/charts/linecharts"));
 const Coupon = lazy(() => import("./pages/admin/apps/coupon"));
 const Stopwatch = lazy(() => import("./pages/admin/apps/stopwatch"));
 const Toss = lazy(() => import("./pages/admin/apps/toss"));
-const NewProduct = lazy(() => import("./pages/admin/management/newproduct"));
+
+const NewProduct = lazy(
+  () => import("./pages/admin/management/newproduct")
+);
+
 const Checkout = lazy(() => import("./components/Checkout"));
 
 const ProductManagement = lazy(
   () => import("./pages/admin/management/productmanagement")
 );
+
 const TransactionManagement = lazy(
   () => import("./pages/admin/management/transactionmanagement")
 );
@@ -51,97 +55,94 @@ const App = () => {
 
   const dispatch = useDispatch();
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          const data = await getUser(firebaseUser.uid);
 
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-    try {
-      if (firebaseUser) {
-        // Existing Google/Firebase login
-        const data = await getUser(firebaseUser.uid);
+          if (data.success && data.user) {
+            dispatch(userExist(data.user));
+          } else {
+            dispatch(userNotExist());
+          }
+
+          return;
+        }
+
+        const token = localStorage.getItem("authToken");
+
+        if (!token) {
+          dispatch(userNotExist());
+          return;
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SERVER}/api/v1/user/session`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          localStorage.removeItem("authToken");
+          dispatch(userNotExist());
+          return;
+        }
+
+        const data = await response.json();
 
         if (data.success && data.user) {
           dispatch(userExist(data.user));
         } else {
+          localStorage.removeItem("authToken");
           dispatch(userNotExist());
         }
-
-        return;
-      }
-
-      // Email/password login: restore from saved JWT
-      const token = localStorage.getItem("authToken");
-
-      if (!token) {
-        dispatch(userNotExist());
-        return;
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SERVER}/api/v1/user/session`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        localStorage.removeItem("authToken");
-        dispatch(userNotExist());
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.user) {
-        dispatch(userExist(data.user));
-      } else {
-        localStorage.removeItem("authToken");
+      } catch (error) {
+        console.error("Session restore failed:", error);
         dispatch(userNotExist());
       }
-    } catch (error) {
-      console.error("Session restore failed:", error);
-      dispatch(userNotExist());
-    }
-  });
+    });
 
-  return () => unsubscribe();
-}, [dispatch]);
-
+    return () => unsubscribe();
+  }, [dispatch]);
 
   return loading ? (
     <Loader />
   ) : (
     <Router>
       <Header user={user} />
+
       <Suspense fallback={<MainLoader />}>
         <Routes>
+          {/* Public routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/categories" element={<Categories />} />
           <Route path="/search" element={<Search />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/404" element={<ErrorPage />} />
 
-          {/* ACCESS WHEN NOT LOGIN */}
-
+          {/* Login */}
           <Route
             path="/login"
             element={
-              <ProtectedRoute isAuthenticated={user ? false : true}>
+              <ProtectedRoute isAuthenticated={!user}>
                 <Login />
               </ProtectedRoute>
             }
           />
 
-          {/* ONLY LOGIN ACCESS */}
-          <Route
-            element={<ProtectedRoute isAuthenticated={user ? true : false} />}
-          >
+          {/* Authenticated user routes */}
+          <Route element={<ProtectedRoute isAuthenticated={!!user} />}>
             <Route path="/shipping" element={<Shipping />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/order/:id" element={<OrderDetails />} />
             <Route path="/pay" element={<Checkout />} />
           </Route>
 
-          {/* ADMIN_ROUTES */}
+          {/* Admin routes */}
           <Route
             element={
               <ProtectedRoute
@@ -155,28 +156,34 @@ useEffect(() => {
             <Route path="/admin/product" element={<Products />} />
             <Route path="/admin/customer" element={<Customers />} />
             <Route path="/admin/transaction" element={<Transaction />} />
+
             {/* Charts */}
             <Route path="/admin/chart/bar" element={<Barcharts />} />
             <Route path="/admin/chart/pie" element={<Piecharts />} />
             <Route path="/admin/chart/line" element={<Linecharts />} />
-            Apps 
+
+            {/* Apps */}
             <Route path="/admin/app/coupon" element={<Coupon />} />
             <Route path="/admin/app/stopwatch" element={<Stopwatch />} />
-            <Route path="/admin/app/toss" element={<Toss />} /> 
+            <Route path="/admin/app/toss" element={<Toss />} />
 
-            /* Management
+            {/* Management */}
             <Route path="/admin/product/new" element={<NewProduct />} />
-
-            <Route path="/admin/product/:id" element={<ProductManagement />} />
-
+            <Route
+              path="/admin/product/:id"
+              element={<ProductManagement />}
+            />
             <Route
               path="/admin/transaction/:id"
               element={<TransactionManagement />}
             />
           </Route>
+
+          {/* Fallback */}
           <Route path="*" element={<ErrorPage />} />
         </Routes>
       </Suspense>
+
       <Toaster position="bottom-left" />
     </Router>
   );

@@ -1,17 +1,25 @@
+
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { CartReducerInitialState } from "../../types/ReducerTypes";
-import { CartItemType, ShippingInfoType } from "../../types/Types";
+import {
+  CartItemType,
+  ShippingInfoType,
+} from "../../types/Types";
 
+const getCartData = () => {
+  const localCartData = localStorage.getItem("myCart");
 
-const getCartData=()=>{
-  var localCartData = localStorage.getItem("myCart");
-  if(!localCartData){
+  if (!localCartData) {
     return [];
   }
-  else{
+
+  try {
     return JSON.parse(localCartData);
+  } catch {
+    return [];
   }
 };
+
 const initialState: CartReducerInitialState = {
   loading: false,
   CartItems: getCartData(),
@@ -32,11 +40,12 @@ const initialState: CartReducerInitialState = {
 export const CartReducer = createSlice({
   name: "CartReducer",
   initialState,
+
   reducers: {
     addToCart: (state, action: PayloadAction<CartItemType>) => {
-      state.loading = true;
       const index = state.CartItems.findIndex(
-        (i) => i.productId === action.payload.productId
+        (item) =>
+          item.productId === action.payload.productId
       );
 
       if (index !== -1) {
@@ -44,42 +53,87 @@ export const CartReducer = createSlice({
       } else {
         state.CartItems.push(action.payload);
       }
+    },
 
-      state.loading = false;
-    },
-    removeFromCart: (state, action: PayloadAction<string>) => {
-      state.loading = true;
+    removeFromCart: (
+      state,
+      action: PayloadAction<string>
+    ) => {
       state.CartItems = state.CartItems.filter(
-        (i) => i.productId !== action.payload
+        (item) => item.productId !== action.payload
       );
-      state.loading = false;
+
+      if (state.CartItems.length === 0) {
+        state.discount = 0;
+      }
     },
+
     calculatePrice: (state) => {
       const subtotal = state.CartItems.reduce(
-        (total, item) => total + item.price * item.quantity,
+        (sum, item) =>
+          sum + item.price * item.quantity,
         0
       );
 
       state.subtotal = subtotal;
-      state.shippingCharges = state.subtotal > 200 ? 0 : 100;
-      state.tax = Math.round(state.subtotal * 0.18);
-      state.total =
-        state.subtotal + state.tax + state.shippingCharges - state.discount;
+
+      if (state.CartItems.length === 0) {
+        state.subtotal = 0;
+        state.shippingCharges = 0;
+        state.tax = 0;
+        state.discount = 0;
+        state.total = 0;
+        return;
+      }
+
+      // Free shipping for orders of ₹500 or more.
+      state.shippingCharges =
+        subtotal >= 500 ? 0 : 100;
+
+      state.tax = Math.round(subtotal * 0.18);
+
+      state.total = Math.max(
+        0,
+        subtotal +
+          state.tax +
+          state.shippingCharges -
+          state.discount
+      );
     },
-    discountApplied: (state, action: PayloadAction<number>) => {
+
+    
+    discountApplied: (
+      state,
+      action: PayloadAction<number>
+    ) => {
       state.discount = action.payload;
+
+      state.total = Math.max(
+        0,
+        state.subtotal +
+        state.tax +
+        state.shippingCharges -
+        state.discount
+      );
     },
-    saveShippingInfo: (state, action: PayloadAction<ShippingInfoType>) => {
+
+
+    saveShippingInfo: (
+      state,
+      action: PayloadAction<ShippingInfoType>
+    ) => {
       state.shippingInfo = action.payload;
     },
+
     resetCart: () => initialState,
-    
   },
-  
 });
-// useEffect(() => {}, [state.CartItems]);
 
-
-
-export const { addToCart, removeFromCart, calculatePrice, discountApplied ,saveShippingInfo,resetCart} =
-  CartReducer.actions;
+export const {
+  addToCart,
+  removeFromCart,
+  calculatePrice,
+  discountApplied,
+  saveShippingInfo,
+  resetCart,
+} = CartReducer.actions;

@@ -1,7 +1,6 @@
 import { FaTrash } from "react-icons/fa";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AdminSidebar from "../../../components/admin/AdminSidebar";
-// import { OrderItem } from "../../../models/types";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import Loader from "../../../components/admin/Loader";
@@ -16,10 +15,10 @@ import { OrderItemType, OrderType } from "../../../types/Types";
 
 const DefaultData: OrderType = {
   shippingInfo: {
-    address: "77 black street",
-    city: "Neyword",
-    state: "Nevada",
-    country: "US",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
     pinCode: "",
   },
   status: "",
@@ -37,126 +36,158 @@ const TransactionManagement = () => {
   const { user } = useSelector(
     (state: { UserReducer: UserReducerType }) => state.UserReducer
   );
-  const params = useParams();
+
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const { data, isError, isLoading } = useOrdersDetailsQuery(params.id!);
+  const { data, isError, isLoading } = useOrdersDetailsQuery(id!);
+  const [updateOrder, { isLoading: isUpdating }] = useProcessOrderMutation();
+  const [deleteOrder, { isLoading: isDeleting }] = useDeleteOrderMutation();
+
+  const order = data?.order || DefaultData;
 
   const {
     shippingInfo: { address, city, country, pinCode, state },
     orderItems,
-    user: { name },
+    user: orderUser,
     status,
     shippingCharges,
     subtotal,
     tax,
     total,
     discount,
-  } = data?.order || DefaultData;
+  } = order;
+
+  const nextStatus =
+    status === "Processing"
+      ? "Shipped"
+      : status === "Shipped"
+      ? "Delivered"
+      : null;
+
+  const updateHandler = async () => {
+    if (!order._id || !nextStatus) return;
+
+    const res = await updateOrder({
+      userId: user?._id!,
+      orderId: order._id,
+    });
+
+    if ("data" in res) {
+      toast.success(`Order status updated to ${res.data.status}`);
+      navigate("/admin/transaction");
+    } else {
+      toast.error("Unable to update order status");
+    }
+  };
+
+  const deleteHandler = async () => {
+    if (!order._id) return;
+
+    const res = await deleteOrder({
+      userId: user?._id!,
+      orderId: order._id,
+    });
+
+    if ("data" in res) {
+      toast.success("Order deleted");
+      navigate("/admin/transaction");
+    } else {
+      toast.error("Unable to delete order");
+    }
+  };
 
   if (isError) {
     navigate("/404");
+    return null;
   }
-  // const [order, setOrder] = useState({});
 
-  const [updateOrder] = useProcessOrderMutation();
-const [deleteOrder]=useDeleteOrderMutation();
-  const updateHandler = async () => {
-    const res = await updateOrder({
-      userId: user?._id!,
-      orderId: data?.order._id!,
-    });
-    if ("data" in res) {
-      const val = res.data.status;
-      toast.success(`Order Status is Set to ${val}`);
-    }
-    if ("error" in res) {
-      toast.error("Some Error!");
-    }
-    navigate("/admin/transaction");
-  };
-  const deleteHandler = async() => {
-     const res = await deleteOrder({
-       userId: user?._id!,
-       orderId: data?.order._id!,
-     });
-     if ("data" in res) {
-       
-       toast.success("Order Deleted");
-     }
-     if ("error" in res) {
-       toast.error("Some Error!");
-     }
-     navigate("/admin/transaction");
-  };
   return (
     <div className="admin-container">
       <AdminSidebar />
+
       {isLoading ? (
         <Loader />
       ) : (
-        <>
-          {" "}
-          <main className="product-management">
-            <section
-              style={{
-                padding: "2rem",
-              }}
+        <main className="product-management">
+          <section style={{ padding: "2rem" }}>
+            <h2>Order Items</h2>
+
+            {orderItems.map((item) => (
+              <ProductCard
+                key={item._id}
+                name={item.name}
+                photo={`${server}/${item.photo}`}
+                productId={item.productId}
+                _id={item._id}
+                quantity={item.quantity}
+                price={item.price}
+              />
+            ))}
+          </section>
+
+          <article className="shipping-info-card">
+            <button
+              className="product-delete-btn"
+              onClick={deleteHandler}
+              disabled={isDeleting}
+              title="Delete order"
             >
-              <h2>Order Items</h2>
+              <FaTrash />
+            </button>
 
-              {orderItems.map((i) => (
-                <ProductCard
-                  key={i._id}
-                  name={i.name}
-                  photo={`${server}/${i.photo}`}
-                  productId={i.productId}
-                  _id={i._id}
-                  quantity={i.quantity}
-                  price={i.price}
-                />
-              ))}
-            </section>
+            <h1>Order Info</h1>
 
-            <article className="shipping-info-card">
-              <button className="product-delete-btn" onClick={deleteHandler}>
-                <FaTrash />
+            <h5>User Info</h5>
+            <p>Name: {orderUser.name}</p>
+            <p>
+              Address: {`${address}, ${city}, ${state}, ${country} ${pinCode}`}
+            </p>
+
+            <h5>Amount Info</h5>
+            <p>Subtotal: ₹{subtotal}</p>
+            <p>Shipping Charges: ₹{shippingCharges}</p>
+            <p>Tax: ₹{tax}</p>
+            <p>Discount: ₹{discount}</p>
+            <p>
+              <strong>Total: ₹{total}</strong>
+            </p>
+
+            <h5>Status Info</h5>
+            <p>
+              Status:{" "}
+              <span
+                className={
+                  status === "Delivered"
+                    ? "purple"
+                    : status === "Shipped"
+                    ? "green"
+                    : "red"
+                }
+              >
+                {status}
+              </span>
+            </p>
+
+            {nextStatus ? (
+              <button
+                className="shipping-btn"
+                onClick={updateHandler}
+                disabled={isUpdating}
+              >
+                {isUpdating
+                  ? "Updating..."
+                  : `Mark as ${nextStatus}`}
               </button>
-              <h1>Order Info</h1>
-              <h5>User Info</h5>
-              <p>Name: {name}</p>
-              <p>
-                Address:{" "}
-                {`${address}, ${city}, ${state}, ${country} ${pinCode}`}
-              </p>
-              <h5>Amount Info</h5>
-              <p>Subtotal: {subtotal}</p>
-              <p>Shipping Charges: {shippingCharges}</p>
-              <p>Tax: {tax}</p>
-              <p>Discount: {discount}</p>
-              <p>Total: {total}</p>
+            ) : (
+              <p>This order has been delivered.</p>
+            )}
 
-              <h5>Status Info</h5>
-              <p>
-                Status:{" "}
-                <span
-                  className={
-                    status === "Delivered"
-                      ? "purple"
-                      : status === "Shipped"
-                      ? "green"
-                      : "red"
-                  }
-                >
-                  {status}
-                </span>
-              </p>
-              <button className="shipping-btn" onClick={updateHandler}>
-                Process Status
-              </button>
-            </article>
-          </main>
-        </>
+            <p style={{ marginTop: "1rem" }}>
+              <Link to="/admin/transaction">← Back to Transactions</Link>
+            </p>
+          </article>
+        </main>
       )}
     </div>
   );
@@ -173,7 +204,7 @@ const ProductCard = ({
     <img src={photo} alt={name} />
     <Link to={`/product/${productId}`}>{name}</Link>
     <span>
-      ₹{price} X {quantity} = ₹{price * quantity}
+      ₹{price} × {quantity} = ₹{price * quantity}
     </span>
   </div>
 );

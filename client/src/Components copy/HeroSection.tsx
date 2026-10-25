@@ -10,7 +10,7 @@ const HeroSection: React.FC = () => {
           <h1>Premium Merchandise</h1>
           <p>Discover our collection of high-quality apparel and accessories</p>
           <div className="hero-buttons">
-            <a href="/all-products" className="btn btn-light">
+            <a href="/Categories" className="btn btn-light">
               Shop Now
             </a>
             <Link to={"/search"} className="findmore">

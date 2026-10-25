@@ -10,8 +10,11 @@ import {
 import { addToCart } from "../redux/reducer/CartReducer";
 import { server } from "../redux/store";
 import { CartItemType, CustomError } from "../types/Types";
+import { useSearchParams } from "react-router-dom";
 
 const Search = () => {
+  const [searchParams] = useSearchParams();
+  const selectedCategory = searchParams.get("category") || "";
   const {
     data: categoriesRes,
     isLoading: categoryLoading,
@@ -21,7 +24,7 @@ const Search = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
   const [maxPrice, setMaxPrice] = useState(100000);
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(selectedCategory);
   const [page, setPage] = useState(1);
 
 

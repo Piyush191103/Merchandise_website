@@ -15,6 +15,7 @@ type Datatype = {
   status: ReactElement;
   action: ReactElement;
 };
+
 const column: Column<Datatype>[] = [
   {
     Header: "ID",
@@ -37,51 +38,57 @@ const column: Column<Datatype>[] = [
     accessor: "action",
   },
 ];
+
 const Orders = () => {
   const { user } = useSelector(
     (state: { UserReducer: UserReducerType }) => state.UserReducer
   );
-  // const [rows] = useState<Datatype[]>([
-  //   {
-  //     _id: "dwwedfw",
-  //     amount: 2142,
-  //     quantity: 4,
-  //     status: <span className="red">Processing</span>,
-  //     action: <Link to={"/order/dwwedfw"}>View</Link>,
-  //   },
-  // ]);
+
   const { data, isError, error } = useMyOrdersQuery(user?._id!);
 
   const [rows, setRows] = useState<Datatype[]>([]);
-  if (isError) {
-    toast.error((error as CustomError).data.message);
-  }
+
+  useEffect(() => {
+    if (isError) {
+      toast.error(
+        (error as CustomError)?.data?.message || "Unable to load orders"
+      );
+    }
+  }, [isError, error]);
+
   useEffect(() => {
     if (data) {
-      console.log(data);
       setRows(
-        data.orders.map((i) => ({
-          _id: i._id,
-          amount: i.total,
-          quantity: 2,
+        data.orders.map((order) => ({
+          _id: order._id,
+          amount: order.total,
+
+          // Calculate actual total quantity across all products.
+          quantity: order.orderItems.reduce(
+            (sum, item) => sum + item.quantity,
+            0
+          ),
+
           status: (
             <span
               className={
-                i.status === "Processing"
+                order.status === "Processing"
                   ? "red"
-                  : i.status === "Shipped"
+                  : order.status === "Shipped"
                   ? "green"
                   : "purple"
               }
             >
-              {i.status}
+              {order.status}
             </span>
           ),
-          action: <Link to={`/order/${i._id}`}>View</Link>,
+
+          action: <Link to={`/order/${order._id}`}>View</Link>,
         }))
       );
     }
   }, [data]);
+
   const Table = TableHOC<Datatype>(
     column,
     rows,
@@ -89,6 +96,7 @@ const Orders = () => {
     "Orders",
     rows.length > 6
   )();
+
   return (
     <div className="orders">
       <h1>MY ORDERS</h1>
