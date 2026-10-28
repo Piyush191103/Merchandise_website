@@ -3,3 +3,4 @@
 /src/.env
 
 /dist
+firebase-service-account.json

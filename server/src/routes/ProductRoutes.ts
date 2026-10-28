@@ -1,7 +1,9 @@
+
 import express from "express";
 
-import { adminOnly } from "../middlewares/auth.js";
+import { authenticate, adminOnly } from "../middlewares/auth.js";
 import { singleUpload } from "../middlewares/multer.js";
+
 import {
   GetLatestProduct,
   deleteProduct,
@@ -15,17 +17,18 @@ import {
 
 const app = express.Router();
 
-app.post("/new", adminOnly, singleUpload, newProduct);
+// Public product browsing
 app.get("/latest", GetLatestProduct);
 app.get("/categories", getAllCategories);
-app.get("/admin-products", adminOnly, getAdminProducts);
 app.get("/all", getAllProducts);
+
+// Admin product management
+app.get("/admin-products", authenticate, adminOnly, getAdminProducts);
+app.post("/new", authenticate, adminOnly, singleUpload, newProduct);
+app.put("/:id", authenticate, adminOnly, singleUpload, updateProduct);
+app.delete("/:id", authenticate, adminOnly, deleteProduct);
+
+// Keep dynamic ID route last
 app.get("/:id", getSingleProduct);
-app.put("/:id",adminOnly,singleUpload, updateProduct);
-app.delete("/:id",adminOnly, deleteProduct);
-
-
-
-
 
 export default app;

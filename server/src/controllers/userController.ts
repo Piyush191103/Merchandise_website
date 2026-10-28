@@ -22,7 +22,7 @@ export const newUser = async (
   next: NextFunction
 ) => {
   try {
-    const { name, email, photo, gender, _id, dob, role } = req.body;
+    const { name, email, photo, gender, _id, dob } = req.body;
     let user = await User.findById(_id);
     if (user) {
       return res.status(200).json({
@@ -40,7 +40,7 @@ export const newUser = async (
       email,
       photo,
      _id,
-      role: role || "user",
+      role:"user",
       ...(gender ? { gender } : {}),
       ...(dob ? { dob } : {}),
     });

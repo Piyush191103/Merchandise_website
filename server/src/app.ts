@@ -15,6 +15,15 @@ import cors from "cors";
 
 config();
 
+import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+
+if (getApps().length === 0) {
+  initializeApp({
+    credential: applicationDefault(),
+  });
+}
+
+
 const port = process.env.PORT || 4000;
 
 const app = express();

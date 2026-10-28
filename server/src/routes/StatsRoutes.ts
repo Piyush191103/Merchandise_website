@@ -1,15 +1,21 @@
+
 import express from "express";
-import { adminOnly } from "../middlewares/auth.js";
-import { getBarCharts, getDashBoardStats, getLineCharts, getPieCharts } from "../controllers/StatsController.js";
+import { authenticate, adminOnly } from "../middlewares/auth.js";
+import {
+  getBarCharts,
+  getDashBoardStats,
+  getLineCharts,
+  getPieCharts,
+} from "../controllers/StatsController.js";
 
 const app = express.Router();
 
-app.get("/stats",adminOnly,getDashBoardStats);
-app.get("/pie",adminOnly,getPieCharts);
-app.get("/bar",adminOnly,getBarCharts);
-app.get("/line",adminOnly,getLineCharts);
+// Verify login first, then check admin role.
+app.use(authenticate, adminOnly);
 
-
-
+app.get("/stats", getDashBoardStats);
+app.get("/pie", getPieCharts);
+app.get("/bar", getBarCharts);
+app.get("/line", getLineCharts);
 
 export default app;

@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/admin/ProtectedRoute";
 import { UserReducerType } from "./types/ReducerTypes";
 import ErrorPage from "./components/ErrorPage";
 
+const Profile = lazy(() => import("./pages/Profile"));
 const Home = lazy(() => import("./pages/Home"));
 const Categories = lazy(() => import("./pages/ShopCategories"));
 const Search = lazy(() => import("./pages/Search"));
@@ -136,6 +137,7 @@ const App = () => {
 
           {/* Authenticated user routes */}
           <Route element={<ProtectedRoute isAuthenticated={!!user} />}>
+            <Route path="/profile" element={<Profile />} />
             <Route path="/shipping" element={<Shipping />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/order/:id" element={<OrderDetails />} />

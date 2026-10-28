@@ -1,171 +1,200 @@
-import { NextFunction, Request, Response } from "express";
-import { NewOrderReqBody, NewProduct, Params } from "../types/types.js";
-import { Order } from "../modles/OrderModel.js";
-import { reduceStock } from "../utils/features.js";
-import { invalidateCache } from "../utils/Revalidate.js";
-import { myCache } from "../app.js"
 
+import { NextFunction, Request, Response } from "express";
+import { Params, NewOrderReqBody } from "../types/types.js";
+import { Order } from "../modles/OrderModel.js";
+import { invalidateCache } from "../utils/Revalidate.js";
+import { myCache } from "../app.js";
+
+type AuthRequest = Request<Params, {}, NewOrderReqBody> & {
+  authenticatedUserId?: string;
+};
+
+// Orders must be created through the verified Razorpay payment flow.
 export const NewOrder = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
-  try {
-    const {
-      shippingCharges,
-      orderItems,
-      user,
-      subtotal,
-      tax,
-      shippingInfo,
-      discount,
-      total,
-    } = req.body;
-    if (!orderItems || !user || !subtotal || !tax || !shippingInfo || !total) {
-      return next(new Error("Missing Fields"));
-    }
-  
-    const ans = await Order.create({
-      shippingCharges,
-      orderItems,
-      user,
-      subtotal,
-      tax,
-      shippingInfo,
-      discount,
-      total,
-    });
-
-    await reduceStock(orderItems);
-
-    await invalidateCache({ product: true, order: true, admin: true });
-    res.status(201).json({
-      sucess: true,
-      message: "Order Placed Successfully",
-    });
-  } catch (error) {
-    return next(new Error("NewOrder"));
-  }
+  return res.status(410).json({
+    success: false,
+    message: "Please place orders through the payment checkout flow.",
+  });
 };
 
 export const myOrders = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { id: user } = req.query;
+    const userId = req.authenticatedUserId;
 
-    let orders = [];
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
 
-    orders = await Order.find({ user });
-    // await invalidateCache({ product: true, order: true, admin: true });
-    res.status(200).json({
-      sucess: true,
+    const orders = await Order.find({ user: userId }).sort({ _id: -1 });
+
+    return res.status(200).json({
+      success: true,
       orders,
     });
   } catch (error) {
-    return next(new Error("myOrders"));
+    next(error);
   }
 };
 
 export const allOrders = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    let orders = [];
+    let orders;
 
     if (myCache.has("all-orders")) {
       orders = JSON.parse(myCache.get("all-orders") as string);
     } else {
-      orders = await Order.find().populate("user", "name");
+      orders = await Order.find().populate("user", "name email");
       myCache.set("all-orders", JSON.stringify(orders));
     }
 
-    res.status(200).json({
-      sucess: true,
+    return res.status(200).json({
+      success: true,
       orders,
     });
   } catch (error) {
-    return next(new Error("Error in myOrders"));
+    next(error);
   }
 };
 
 export const getSingleOrder = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { id } = req.params;
-    let order;
+    const userId = req.authenticatedUserId;
 
-    order = await Order.findById(id).populate("user", "name");
-    if (!order) {
-      return next(new Error("No Order Found"));
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
     }
-    res.status(200).json({
-      sucess: true,
+
+    const order = await Order.findById(req.params.id).populate(
+      "user",
+      "name email"
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const orderOwnerId = String(
+    (order.user as unknown as { _id?: unknown })?._id ?? order.user
+    );
+
+    const requester = await import("../modles/userModel.js").then(
+      ({ User }) => User.findById(userId).select("role")
+    );
+
+    if (
+      orderOwnerId !== userId &&
+      requester?.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access this order",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
       order,
     });
   } catch (error) {
-    return next(new Error("error in getSingleOrder"));
+    next(error);
   }
 };
 
 export const processOrder = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { id } = req.params;
-    let order;
-    order = await Order.findById(id);
+    const order = await Order.findById(req.params.id);
+
     if (!order) {
-      return next(new Error("No Order Found"));
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
+
     if (order.status === "Processing") {
       order.status = "Shipped";
     } else if (order.status === "Shipped") {
       order.status = "Delivered";
     } else {
-      order.status = "Delivered";
+      return res.status(400).json({
+        success: false,
+        message: "This order has already been delivered",
+      });
     }
+
     await order.save();
-    await invalidateCache({ product: false, order: true, admin: true });
-    const status = order.status;
-    res.status(200).json({
+    await invalidateCache({
+      product: false,
+      order: true,
+      admin: true,
+    });
+
+    return res.status(200).json({
       success: true,
-      status: status,
+      status: order.status,
     });
   } catch (error) {
-    return next(new Error("error in processOrder"));
+    next(error);
   }
 };
 
 export const deleteOrder = async (
-  req: Request<Params, {}, NewOrderReqBody>,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { id } = req.params;
-    let order;
-    order = await Order.findById(id);
-    if (!order) {
-      return next(new Error("No Order Found"));
-    }
-    await order.deleteOne();
-    await invalidateCache({ product: false, order: true, admin: true });
+    const order = await Order.findById(req.params.id);
 
-    res.status(200).json({
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    await order.deleteOne();
+
+    await invalidateCache({
+      product: false,
+      order: true,
+      admin: true,
+    });
+
+    return res.status(200).json({
       success: true,
-      message: "Order Deleted",
+      message: "Order deleted",
     });
   } catch (error) {
-    return next(new Error("error in deleteOrder"));
+    next(error);
   }
 };

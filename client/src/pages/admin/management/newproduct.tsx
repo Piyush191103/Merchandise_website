@@ -63,9 +63,21 @@ if("data" in res){
 toast.success(res.data.message)
 navigate("/admin/product");
 }
-if("error" in res){
-  toast.error("Unable to create Product");
+
+if ("error" in res) {
+  console.error("Create product error:", res.error);
+
+  const message =
+    "data" in res.error &&
+    res.error.data &&
+    typeof res.error.data === "object" &&
+    "message" in res.error.data
+      ? String(res.error.data.message)
+      : "Unable to create Product";
+
+  toast.error(message);
 }
+
   }
 
   return (

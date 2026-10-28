@@ -9,7 +9,7 @@ import {
   emailSignin,
   verifySession,
 } from "../controllers/userController.js";
-import { adminOnly } from "../middlewares/auth.js";
+import { authenticate, adminOnly } from "../middlewares/auth.js";
 
 const app = express.Router();
 
@@ -26,12 +26,12 @@ app.post("/signin", emailSignin);
 app.get("/session", verifySession);
 
 // Get all users (admin only)
-app.get("/all", adminOnly, getAllUsers);
+app.get("/all", authenticate, adminOnly, getAllUsers);
 
 // Get a single user
-app.get("/:id", getUser);
+app.get("/:id", authenticate, getUser);
 
 // Delete user (admin only)
-app.delete("/:id", adminOnly, deleteUser);
+app.delete("/:id",authenticate, adminOnly, deleteUser);
 
 export default app;

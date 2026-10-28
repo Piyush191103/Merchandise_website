@@ -1,6 +1,7 @@
 
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import axios from "axios";
+import { auth } from "../../firebase";
 import {
   AllUserMessageResponse,
   DeleteUserReq,
@@ -37,14 +38,34 @@ export type EmailAuthResponse = {
   };
 };
 
+const getAuthToken = async (): Promise<string | null> => {
+  // Firebase login
+  const firebaseUser = auth.currentUser;
+
+  if (firebaseUser) {
+    return await firebaseUser.getIdToken();
+  }
+
+  // Email/password login
+  return localStorage.getItem("authToken");
+};
+
 export const userApi = createApi({
   reducerPath: "userApi",
   baseQuery: fetchBaseQuery({
     baseUrl: `${import.meta.env.VITE_SERVER}/api/v1/user/`,
+    prepareHeaders: async (headers) => {
+      const token = await getAuthToken();
+
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+
+      return headers;
+    },
   }),
   tagTypes: ["users"],
   endpoints: (builder) => ({
-    // Existing Google login — keep this
     login: builder.mutation<MessageResponse, UserType>({
       query: (user) => ({
         url: "new",
@@ -54,7 +75,6 @@ export const userApi = createApi({
       invalidatesTags: ["users"],
     }),
 
-    // Normal email/password signup
     emailSignup: builder.mutation<EmailAuthResponse, EmailSignupRequest>({
       query: (user) => ({
         url: "signup",
@@ -64,7 +84,6 @@ export const userApi = createApi({
       invalidatesTags: ["users"],
     }),
 
-    // Normal email/password signin
     emailSignin: builder.mutation<EmailAuthResponse, EmailSigninRequest>({
       query: (user) => ({
         url: "signin",
@@ -74,13 +93,13 @@ export const userApi = createApi({
     }),
 
     getAllUser: builder.query<AllUserMessageResponse, string>({
-      query: (id) => `all?id=${id}`,
+      query: () => "all",
       providesTags: ["users"],
     }),
 
     deleteUser: builder.mutation<MessageResponse, DeleteUserReq>({
-      query: ({ userId, adminId }) => ({
-        url: `${userId}?id=${adminId}`,
+      query: ({ userId }) => ({
+        url: `${userId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["users"],
@@ -89,9 +108,17 @@ export const userApi = createApi({
 });
 
 export const getUser = async (id: string) => {
+  const token = await getAuthToken();
+
   const { data }: { data: UserResponse } = await axios.get(
-    `${import.meta.env.VITE_SERVER}/api/v1/user/${id}`
+    `${import.meta.env.VITE_SERVER}/api/v1/user/${id}`,
+    {
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : {},
+    }
   );
+
   return data;
 };
 

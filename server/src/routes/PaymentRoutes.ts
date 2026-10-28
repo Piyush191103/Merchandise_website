@@ -8,16 +8,16 @@ import {
   newCoupon,
   verifyPayment,
 } from "../controllers/PaymentController.js";
-import { adminOnly } from "../middlewares/auth.js";
+import { adminOnly, authenticate } from "../middlewares/auth.js";
 
 const app = express.Router();
 
 app.post("/create", createPaymentIntent);
 app.post("/verify", verifyPayment);
 
-app.post("/coupon/new", adminOnly, newCoupon);
+app.post("/coupon/new",authenticate, adminOnly, newCoupon);
 app.get("/discount", applyDiscount);
-app.get("/coupon/all", adminOnly, allCoupon);
-app.delete("/coupon/:id", adminOnly, deleteCoupon);
+app.get("/coupon/all",authenticate, adminOnly, allCoupon);
+app.delete("/coupon/:id",authenticate, adminOnly, deleteCoupon);
 
 export default app;
